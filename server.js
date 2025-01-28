@@ -136,7 +136,13 @@ schedule.scheduleJob('*/1 * * * *', async () => {
     }
 });
 
+// Ruta raíz para manejar GET /
+app.get('/', (req, res) => {
+    res.send('Bienvenido a la API de Gestión de Compromisos');
+});
+
 // Inicia el servidor
 app.listen(PORT, () => {
     console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
+
