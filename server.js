@@ -2,7 +2,6 @@ const express = require('express');
 const nodemailer = require('nodemailer');
 const cors = require('cors');
 const { Pool } = require('pg');
-const schedule = require('node-schedule');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,6 +14,11 @@ const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
 });
+
+// Verificar conexión a la base de datos
+pool.connect()
+    .then(() => console.log('Conexión a la base de datos exitosa'))
+    .catch((err) => console.error('Error al conectar a la base de datos:', err.message));
 
 // Crear la tabla si no existe
 pool.query(`
@@ -32,12 +36,29 @@ pool.query(`
     )
 `).catch(err => console.error('Error al crear la tabla:', err));
 
-// Configuración del transporte de correos
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: 'juanfelipegilmora2024@gmail.com',
-        pass: 'nnmihybpnvvtiqqz'
+// Endpoint para obtener compromisos por usuario
+app.get('/commitments/:userId', async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        const query = `SELECT * FROM commitments WHERE userId = $1`;
+        const result = await pool.query(query, [userId]);
+        res.status(200).json(result.rows);
+    } catch (err) {
+        console.error('Error al obtener compromisos:', err.message);
+        res.status(500).json({ error: 'Error al obtener compromisos.', detalle: err.message });
+    }
+});
+
+// Endpoint para obtener todos los compromisos (vista de administrador)
+app.get('/admin/commitments', async (req, res) => {
+    try {
+        const query = `SELECT * FROM commitments`;
+        const result = await pool.query(query);
+        res.status(200).json(result.rows);
+    } catch (err) {
+        console.error('Error al obtener todos los compromisos:', err.message);
+        res.status(500).json({ error: 'Error al obtener todos los compromisos.', detalle: err.message });
     }
 });
 
@@ -53,43 +74,14 @@ app.post('/commitments', async (req, res) => {
 
         const result = await pool.query(query, values);
 
-        await transporter.sendMail({
-            from: 'juanfelipegilmora2024@gmail.com',
-            to: responsibleEmail,
-            subject: 'Nuevo compromiso asignado',
-            text: `Hola ${responsible},\n\nSe ha asignado un nuevo compromiso:\n\nCompromiso: ${commitment}\nMunicipio: ${municipality}\n\nGracias.`
-        });
-
         res.status(201).json(result.rows[0]);
     } catch (err) {
         console.error('Error al guardar el compromiso:', err.message);
-        res.status(500).send('Error al guardar el compromiso.');
+        res.status(500).json({ error: 'Error al guardar el compromiso.', detalle: err.message });
     }
 });
 
-// Endpoint para obtener compromisos por usuario
-app.get('/commitments/:userId', async (req, res) => {
-    try {
-        const result = await pool.query(`SELECT * FROM commitments WHERE userId = $1`, [req.params.userId]);
-        res.status(200).json(result.rows);
-    } catch (err) {
-        console.error('Error al obtener compromisos:', err.message);
-        res.status(500).send('Error al obtener compromisos.');
-    }
-});
-
-// **Corrección: Vista de administrador ahora funciona correctamente**
-app.get('/admin/commitments', async (req, res) => {
-    try {
-        const result = await pool.query(`SELECT * FROM commitments`);
-        res.status(200).json(result.rows);
-    } catch (err) {
-        console.error('Error al obtener todos los compromisos:', err.message);
-        res.status(500).send('Error al obtener compromisos.');
-    }
-});
-
-// Endpoint para eliminar un compromiso (requiere contraseña)
+// Endpoint para eliminar un compromiso
 app.delete('/commitments/:id', async (req, res) => {
     const { id } = req.params;
     const { password } = req.body;
@@ -99,7 +91,8 @@ app.delete('/commitments/:id', async (req, res) => {
     }
 
     try {
-        const result = await pool.query(`DELETE FROM commitments WHERE id = $1 RETURNING *`, [id]);
+        const query = `DELETE FROM commitments WHERE id = $1 RETURNING *`;
+        const result = await pool.query(query, [id]);
 
         if (result.rowCount > 0) {
             res.status(200).json({ message: 'Compromiso eliminado.' });
@@ -112,5 +105,10 @@ app.delete('/commitments/:id', async (req, res) => {
     }
 });
 
-// Servidor en ejecución
+// Ruta de prueba para verificar que el servidor está en funcionamiento
+app.get('/', (req, res) => {
+    res.send('API de Gestión de Compromisos en funcionamiento.');
+});
+
+// Inicia el servidor
 app.listen(PORT, () => console.log(`Servidor corriendo en el puerto ${PORT}`));
