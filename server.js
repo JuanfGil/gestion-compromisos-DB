@@ -1,7 +1,7 @@
 const express = require('express');
 const nodemailer = require('nodemailer');
 const cors = require('cors');
-const { Pool } = require('pg'); // Importa el cliente de PostgreSQL
+const { Pool } = require('pg');
 const schedule = require('node-schedule');
 
 const app = express();
@@ -12,9 +12,9 @@ app.use(express.json());
 
 // Configuración de la base de datos PostgreSQL
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL, // Render configurará esta variable
+    connectionString: process.env.DATABASE_URL,
     ssl: {
-        rejectUnauthorized: false // Necesario para entornos en la nube
+        rejectUnauthorized: false
     }
 });
 
@@ -39,23 +39,22 @@ const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: 'juanfelipegilmora2024@gmail.com',
-        pass: 'nnmihybpnvvtiqqz' // Contraseña de aplicación generada en Gmail
+        pass: 'nnmihybpnvvtiqqz'
     }
 });
 
 // Endpoint para guardar un compromiso
 app.post('/commitments', async (req, res) => {
-    const { leaderName, commitment, responsible, municipality, observation, responsibleEmail, userId } = req.body;
+    const { leaderName, commitment, responsible, municipality, observation, responsibleEmail, userId, creationDate } = req.body;
 
     try {
         const query = `
-            INSERT INTO commitments (leaderName, commitment, responsible, municipality, observation, responsibleEmail, userId)
-            VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`;
-        const values = [leaderName, commitment, responsible, municipality, observation, responsibleEmail, userId];
+            INSERT INTO commitments (leaderName, commitment, responsible, municipality, observation, responsibleEmail, userId, creationDate)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
+        const values = [leaderName, commitment, responsible, municipality, observation, responsibleEmail, userId, creationDate];
 
         const result = await pool.query(query, values);
 
-        // Enviar correo al responsable
         await transporter.sendMail({
             from: 'juanfelipegilmora2024@gmail.com',
             to: responsibleEmail,
@@ -96,13 +95,56 @@ app.get('/admin/commitments', async (req, res) => {
     }
 });
 
-// Tarea programada para verificar estados
-schedule.scheduleJob('*/1 * * * *', async () => {
-    console.log('Ejecutando la tarea diaria para verificar estados...');
+// Endpoint para marcar un compromiso como cumplido y agregar observación
+app.put('/commitments/:id', async (req, res) => {
+    const { id } = req.params;
+    const { state, observation } = req.body;
+
+    try {
+        const query = `UPDATE commitments SET state = $1, observation = $2 WHERE id = $3 RETURNING *`;
+        const result = await pool.query(query, [state, observation, id]);
+
+        if (result.rowCount > 0) {
+            res.status(200).json({ message: 'Compromiso actualizado.', compromiso: result.rows[0] });
+        } else {
+            res.status(404).json({ error: 'Compromiso no encontrado.' });
+        }
+    } catch (err) {
+        console.error('Error al actualizar el compromiso:', err.message);
+        res.status(500).send('Error al actualizar el compromiso.');
+    }
+});
+
+// Endpoint para eliminar un compromiso (requiere contraseña "admin123")
+app.delete('/commitments/:id', async (req, res) => {
+    const { id } = req.params;
+    const { password } = req.body;
+
+    if (password !== 'admin123') {
+        return res.status(401).json({ error: 'Contraseña incorrecta' });
+    }
+
+    try {
+        const query = `DELETE FROM commitments WHERE id = $1 RETURNING *`;
+        const result = await pool.query(query, [id]);
+
+        if (result.rowCount > 0) {
+            res.status(200).json({ message: 'Compromiso eliminado.', compromiso: result.rows[0] });
+        } else {
+            res.status(404).json({ error: 'Compromiso no encontrado.' });
+        }
+    } catch (err) {
+        console.error('Error al eliminar el compromiso:', err.message);
+        res.status(500).send('Error al eliminar el compromiso.');
+    }
+});
+
+// Tarea programada para actualizar estados automáticamente
+schedule.scheduleJob('0 0 * * *', async () => {
+    console.log('Ejecutando tarea diaria para actualizar estados...');
     try {
         const query = `SELECT * FROM commitments`;
         const result = await pool.query(query);
-
         const now = new Date();
 
         for (const commitment of result.rows) {
@@ -120,7 +162,6 @@ schedule.scheduleJob('*/1 * * * *', async () => {
                 const updateQuery = `UPDATE commitments SET state = $1 WHERE id = $2`;
                 await pool.query(updateQuery, [newState, commitment.id]);
 
-                // Enviar correo al responsable por cambio de estado
                 await transporter.sendMail({
                     from: 'juanfelipegilmora2024@gmail.com',
                     to: commitment.responsibleEmail,
@@ -132,11 +173,11 @@ schedule.scheduleJob('*/1 * * * *', async () => {
             }
         }
     } catch (err) {
-        console.error('Error al ejecutar la tarea programada:', err.message);
+        console.error('Error en la tarea programada:', err.message);
     }
 });
 
-// Ruta raíz para manejar GET /
+// Ruta raíz
 app.get('/', (req, res) => {
     res.send('Bienvenido a la API de Gestión de Compromisos');
 });
@@ -145,4 +186,3 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
-
