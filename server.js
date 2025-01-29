@@ -25,11 +25,6 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// Verificar conexión a la base de datos
-pool.connect()
-    .then(() => console.log('Conexión a la base de datos exitosa'))
-    .catch((err) => console.error('Error al conectar a la base de datos:', err.message));
-
 // Crear la tabla si no existe
 pool.query(`
     CREATE TABLE IF NOT EXISTS commitments (
@@ -46,12 +41,37 @@ pool.query(`
     )
 `).catch(err => console.error('Error al crear la tabla:', err));
 
-// Endpoint para guardar un compromiso
+// Obtener compromisos por usuario
+app.get('/commitments/:userId', async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        const query = 'SELECT * FROM commitments WHERE userId = $1';
+        const result = await pool.query(query, [userId]);
+        res.status(200).json(result.rows);
+    } catch (err) {
+        console.error('Error al obtener compromisos:', err.message);
+        res.status(500).json({ error: 'Error al obtener compromisos' });
+    }
+});
+
+// Obtener todos los compromisos (vista de administrador)
+app.get('/admin/commitments', async (req, res) => {
+    try {
+        const query = 'SELECT * FROM commitments';
+        const result = await pool.query(query);
+        res.status(200).json(result.rows);
+    } catch (err) {
+        console.error('Error al obtener todos los compromisos:', err.message);
+        res.status(500).json({ error: 'Error al obtener todos los compromisos' });
+    }
+});
+
+// Guardar un nuevo compromiso
 app.post('/commitments', async (req, res) => {
     const { leaderName, commitment, responsible, municipality, observation, responsibleEmail, userId, creationDate } = req.body;
 
     try {
-        // Verificar si ya existe el compromiso
         const duplicateCheck = await pool.query(`SELECT * FROM commitments WHERE commitment = $1 AND userId = $2`, [commitment, userId]);
         if (duplicateCheck.rows.length > 0) {
             return res.status(400).json({ error: 'El compromiso ya existe.' });
@@ -64,7 +84,6 @@ app.post('/commitments', async (req, res) => {
 
         const result = await pool.query(query, values);
 
-        // Enviar correo al responsable y al correo fijo
         await transporter.sendMail({
             from: 'juanfelipegilmora2024@gmail.com',
             to: [responsibleEmail, 'juanfelipegilmora2024@gmail.com'],
@@ -79,19 +98,18 @@ app.post('/commitments', async (req, res) => {
     }
 });
 
-// Endpoint para actualizar el estado y enviar correos
+// Actualizar estado de un compromiso
 app.put('/commitments/:id', async (req, res) => {
     const { id } = req.params;
     const { state, observation } = req.body;
 
     try {
-        const query = `UPDATE commitments SET state = $1, observation = $2 WHERE id = $3 RETURNING *`;
+        const query = 'UPDATE commitments SET state = $1, observation = $2 WHERE id = $3 RETURNING *';
         const result = await pool.query(query, [state, observation, id]);
 
         if (result.rowCount > 0) {
             const updatedCommitment = result.rows[0];
 
-            // Enviar correo por cambio de estado
             await transporter.sendMail({
                 from: 'juanfelipegilmora2024@gmail.com',
                 to: [updatedCommitment.responsibleEmail, 'juanfelipegilmora2024@gmail.com'],
@@ -109,11 +127,35 @@ app.put('/commitments/:id', async (req, res) => {
     }
 });
 
+// Eliminar un compromiso
+app.delete('/commitments/:id', async (req, res) => {
+    const { id } = req.params;
+    const { password } = req.body;
+
+    if (password !== 'admin123') {
+        return res.status(401).json({ error: 'Contraseña incorrecta' });
+    }
+
+    try {
+        const query = 'DELETE FROM commitments WHERE id = $1 RETURNING *';
+        const result = await pool.query(query, [id]);
+
+        if (result.rowCount > 0) {
+            res.status(200).json({ message: 'Compromiso eliminado.' });
+        } else {
+            res.status(404).json({ error: 'Compromiso no encontrado.' });
+        }
+    } catch (err) {
+        console.error('Error al eliminar el compromiso:', err.message);
+        res.status(500).send('Error al eliminar el compromiso.');
+    }
+});
+
 // Tarea programada para actualizar estados automáticamente
 schedule.scheduleJob('0 0 * * *', async () => {
     console.log('Ejecutando tarea diaria para actualizar estados...');
     try {
-        const query = `SELECT * FROM commitments`;
+        const query = 'SELECT * FROM commitments';
         const result = await pool.query(query);
         const now = new Date();
 
@@ -129,9 +171,8 @@ schedule.scheduleJob('0 0 * * *', async () => {
             }
 
             if (newState !== commitment.state) {
-                await pool.query(`UPDATE commitments SET state = $1 WHERE id = $2`, [newState, commitment.id]);
+                await pool.query('UPDATE commitments SET state = $1 WHERE id = $2', [newState, commitment.id]);
 
-                // Enviar correos
                 await transporter.sendMail({
                     from: 'juanfelipegilmora2024@gmail.com',
                     to: [commitment.responsibleEmail, 'juanfelipegilmora2024@gmail.com'],
@@ -147,7 +188,7 @@ schedule.scheduleJob('0 0 * * *', async () => {
     }
 });
 
-// Ruta de prueba para verificar que el servidor está en funcionamiento
+// Ruta de prueba
 app.get('/', (req, res) => {
     res.send('API de Gestión de Compromisos en funcionamiento.');
 });
