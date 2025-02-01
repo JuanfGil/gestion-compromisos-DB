@@ -110,7 +110,7 @@ app.post('/commitments', async (req, res) => {
         const query = `
             INSERT INTO commitments (leaderName, leaderPhone, commitment, responsible, municipality, observation, responsibleEmail, userId, creationDate)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`;
-        const values = [leaderName, commitment, responsible, municipality, observation, responsibleEmail, userId, creationDate];
+        const values = [leaderName, leaderPhone, commitment, responsible, municipality, observation, responsibleEmail, userId, creationDate];
 
         const result = await pool.query(query, values);
 
