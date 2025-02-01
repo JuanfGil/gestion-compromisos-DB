@@ -16,6 +16,11 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
+// Agregar columna leaderPhone si no existe
+pool.query(`
+    ALTER TABLE commitments ADD COLUMN IF NOT EXISTS leaderPhone TEXT;
+`).catch(err => console.error('Error al modificar la tabla:', err));
+
 // Agregar columna avanceCompromiso si no existe
 pool.query(`
     ALTER TABLE commitments ADD COLUMN IF NOT EXISTS avanceCompromiso TEXT DEFAULT '';
@@ -94,7 +99,7 @@ app.get('/admin/commitments', async (req, res) => {
 
 // Guardar un nuevo compromiso
 app.post('/commitments', async (req, res) => {
-    const { leaderName, commitment, responsible, municipality, observation, responsibleEmail, userId, creationDate } = req.body;
+    const { leaderName, leaderPhone, commitment, responsible, municipality, observation, responsibleEmail, userId, creationDate } = req.body;
 
     try {
         const duplicateCheck = await pool.query(`SELECT * FROM commitments WHERE commitment = $1 AND userId = $2`, [commitment, userId]);
@@ -103,7 +108,7 @@ app.post('/commitments', async (req, res) => {
         }
 
         const query = `
-            INSERT INTO commitments (leaderName, commitment, responsible, municipality, observation, responsibleEmail, userId, creationDate)
+            INSERT INTO commitments (leaderName, leaderPhone, commitment, responsible, municipality, observation, responsibleEmail, userId, creationDate)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
         const values = [leaderName, commitment, responsible, municipality, observation, responsibleEmail, userId, creationDate];
 
