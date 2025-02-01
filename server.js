@@ -16,11 +16,6 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
-// Agregar columna leaderPhone si no existe
-pool.query(`
-    ALTER TABLE commitments ADD COLUMN IF NOT EXISTS leaderPhone TEXT;
-`).catch(err => console.error('Error al modificar la tabla:', err));
-
 // Agregar columna avanceCompromiso si no existe
 pool.query(`
     ALTER TABLE commitments ADD COLUMN IF NOT EXISTS avanceCompromiso TEXT DEFAULT '';
@@ -60,6 +55,7 @@ pool.query(`
     CREATE TABLE IF NOT EXISTS commitments (
         id SERIAL PRIMARY KEY,
         leaderName TEXT NOT NULL,
+        leaderPhone TEXT NOT NULL,
         commitment TEXT NOT NULL,
         responsible TEXT NOT NULL,
         responsibleEmail TEXT NOT NULL,
