@@ -102,14 +102,6 @@ app.post('/commitments', async (req, res) => {
     const { leaderName, leaderPhone, commitment, responsible, municipality, observation, responsibleEmail, userId, creationDate } = req.body;
 
     try {
-        // Validación de datos
-        if (!leaderName || !leaderPhone || !commitment || !responsible || !municipality || !responsibleEmail || !userId) {
-            return res.status(400).json({ error: 'Todos los campos son obligatorios.' });
-        }
-
-        if (!/^\d+$/.test(leaderPhone)) {
-            return res.status(400).json({ error: 'Teléfono del líder debe ser un número válido.' });
-        }
         const duplicateCheck = await pool.query(`SELECT * FROM commitments WHERE commitment = $1 AND userId = $2`, [commitment, userId]);
         if (duplicateCheck.rows.length > 0) {
             return res.status(400).json({ error: 'El compromiso ya existe.' });
@@ -117,7 +109,7 @@ app.post('/commitments', async (req, res) => {
 
         const query = `
             INSERT INTO commitments (leaderName, leaderPhone, commitment, responsible, municipality, observation, responsibleEmail, userId, creationDate)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`;
         const values = [leaderName, commitment, responsible, municipality, observation, responsibleEmail, userId, creationDate];
 
         const result = await pool.query(query, values);
