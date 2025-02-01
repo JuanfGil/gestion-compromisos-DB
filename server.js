@@ -16,6 +16,31 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
+// Agregar columna avanceCompromiso si no existe
+pool.query(`
+    ALTER TABLE commitments ADD COLUMN IF NOT EXISTS avanceCompromiso TEXT DEFAULT '';
+`).catch(err => console.error('Error al modificar la tabla:', err));
+
+// Guardar un avance en un compromiso
+app.post('/commitments/:id/avance', async (req, res) => {
+    const { id } = req.params;
+    const { avance } = req.body;
+    
+    try {
+        const query = 'UPDATE commitments SET avanceCompromiso = $1 WHERE id = $2 RETURNING *';
+        const result = await pool.query(query, [avance, id]);
+
+        if (result.rowCount > 0) {
+            res.status(200).json({ message: 'Avance guardado correctamente.', compromiso: result.rows[0] });
+        } else {
+            res.status(404).json({ error: 'Compromiso no encontrado.' });
+        }
+    } catch (err) {
+        console.error('Error al guardar el avance:', err.message);
+        res.status(500).json({ error: 'Error al guardar el avance.' });
+    }
+});
+
 // Configuración del transporte de correos
 const transporter = nodemailer.createTransport({
     service: 'gmail',
