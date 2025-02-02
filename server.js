@@ -158,7 +158,7 @@ app.delete('/commitments/:id', async (req, res) => {
     const { id } = req.params;
     const { password } = req.body;
 
-    if (password !== 'admin123') {
+    if (password !== 'geo2026') {
         return res.status(401).json({ error: 'Contraseña incorrecta' });
     }
 
