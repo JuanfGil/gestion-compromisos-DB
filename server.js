@@ -45,8 +45,8 @@ app.post('/commitments/:id/avance', async (req, res) => {
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: 'juanfelipegilmora2024@gmail.com',
-        pass: 'nnmihybpnvvtiqqz'
+        user: 'enriquezroserot@gmail.com',
+        pass: 'wknyrrdzhtgjymgn'
     }
 });
 
@@ -111,8 +111,8 @@ app.post('/commitments', async (req, res) => {
         const result = await pool.query(query, values);
 
         await transporter.sendMail({
-            from: 'juanfelipegilmora2024@gmail.com',
-            to: [responsibleEmail, 'juanfelipegilmora2024@gmail.com'],
+            from: 'enriquezroserot@gmail.com',
+            to: [responsibleEmail, 'enriquezroserot@gmail.com', 'rossiobp@gmail.com'],
             subject: 'Nuevo compromiso asignado',
             text: `Hola ${responsible},\n\nSe ha asignado un nuevo compromiso:\n\nCompromiso: ${commitment}\nMunicipio: ${municipality}\n\nGracias.`
         });
@@ -137,8 +137,8 @@ app.put('/commitments/:id', async (req, res) => {
             const updatedCommitment = result.rows[0];
 
             await transporter.sendMail({
-                from: 'juanfelipegilmora2024@gmail.com',
-                to: [updatedCommitment.responsibleEmail, 'juanfelipegilmora2024@gmail.com'],
+                from: 'enriquezroserot@gmail.com',
+                to: [updatedCommitment.responsibleEmail, 'enriquezroserot@gmail.com', 'rossiobp@gmail.com'],
                 subject: `Actualización de estado: ${state}`,
                 text: `Hola ${updatedCommitment.responsible},\n\nEl compromiso "${updatedCommitment.commitment}" ahora tiene el estado "${state}".\n\nGracias.`
             });
@@ -200,8 +200,8 @@ schedule.scheduleJob('0 0 * * *', async () => {
                 await pool.query('UPDATE commitments SET state = $1 WHERE id = $2', [newState, commitment.id]);
 
                 await transporter.sendMail({
-                    from: 'juanfelipegilmora2024@gmail.com',
-                    to: [commitment.responsibleEmail, 'juanfelipegilmora2024@gmail.com'],
+                    from: 'enriquezroserot@gmail.com',
+                    to: [commitment.responsibleEmail, 'enriquezroserot@gmail.com', 'rossiobp@gmail.com'],
                     subject: `Cambio de estado a ${newState}`,
                     text: `Hola ${commitment.responsible},\n\nEl compromiso "${commitment.commitment}" ha cambiado a estado "${newState}".\n\nGracias.`
                 });
