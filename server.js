@@ -186,13 +186,21 @@ schedule.scheduleJob('0 0 * * *', async () => {
         const now = new Date();
 
         for (const commitment of result.rows) {
-            const creationDate = new Date(commitment.creationDate);
+            console.log(`Compromiso ID ${commitment.id} - Fecha de Creación en DB: ${commitment.creationdate}`);
+
+            // Asegurarse de que la fecha de creación es válida
+            const creationDate = new Date(commitment.creationdate);
+            if (isNaN(creationDate.getTime())) {
+                console.error(`Fecha inválida para compromiso con ID ${commitment.id}`);
+                continue; // Salta este compromiso si la fecha no es válida
+            }
+
             const diffInDays = Math.floor((now - creationDate) / (1000 * 60 * 60 * 24));
             let newState = commitment.state;
 
             if (diffInDays > 30 && commitment.state !== 'Vencido') {
                 newState = 'Vencido';
-            } else if (diffInDays > 15 && commitment.state !== 'Pendiente') {
+            } else if (diffInDays > 15 && commitment.state !== 'Pendiente' && commitment.state !== 'Vencido') {
                 newState = 'Pendiente';
             }
 
@@ -201,7 +209,7 @@ schedule.scheduleJob('0 0 * * *', async () => {
 
                 await transporter.sendMail({
                     from: 'enriquezroserot@gmail.com',
-                    to: [commitment.responsibleEmail, 'enriquezroserot@gmail.com', 'rossiobp@gmail.com'],
+                    to: [commitment.responsibleemail, 'enriquezroserot@gmail.com', 'rossiobp@gmail.com'],
                     subject: `Cambio de estado a ${newState}`,
                     text: `Hola ${commitment.responsible},\n\nEl compromiso "${commitment.commitment}" ha cambiado a estado "${newState}".\n\nGracias.`
                 });
@@ -213,6 +221,7 @@ schedule.scheduleJob('0 0 * * *', async () => {
         console.error('Error en la tarea programada:', err.message);
     }
 });
+
 
 // Ruta de prueba
 app.get('/', (req, res) => {
