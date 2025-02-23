@@ -10,7 +10,9 @@ const PORT = process.env.PORT || 10000;
 app.use(cors());
 app.use(express.json());
 app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type");
     next();
 });
 
@@ -261,6 +263,12 @@ app.delete('/commitments/:id', async (req, res) => {
 app.get('/', (req, res) => {
     res.send('API de Gestión de Compromisos en funcionamiento.');
 });
+
+app.all('*', (req, res, next) => {
+    console.log(`📌 Solicitud recibida: ${req.method} ${req.originalUrl}`);
+    next();
+});
+
 
 // Inicia el servidor
 app.listen(PORT, () => console.log(`Servidor corriendo en el puerto ${PORT}`));
