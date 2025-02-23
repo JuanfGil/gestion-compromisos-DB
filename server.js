@@ -111,7 +111,7 @@ app.post('/commitments', async (req, res) => {
 
         await transporter.sendMail({
             from: 'enriquezroserot@gmail.com',
-            to: [responsibleEmail, 'enriquezroserot@gmail.com', 'rossiobp@gmail.com'],
+            to: ['juanfelipegilmora2024@gmail.com'],
             subject: 'Nuevo compromiso asignado',
             text: `Hola ${responsible},\n\nSe ha asignado un nuevo compromiso:\n\nCompromiso: ${commitment}\nMunicipio: ${municipality}\n\nGracias.`
         });
@@ -222,26 +222,6 @@ app.delete('/commitments/:id', async (req, res) => {
 // Ruta de prueba
 app.get('/', (req, res) => {
     res.send('API de Gestión de Compromisos en funcionamiento.');
-});
-
-// Ruta para probar envío de correos manualmente
-app.get('/test-email', async (req, res) => {
-    const mailOptions = {
-        from: 'enriquezroserot@gmail.com',
-        to: ['juanfelipegilmora2024@gmail.com'],
-        subject: 'Prueba de correo desde backend',
-        text: 'Este es un correo de prueba para verificar que nodemailer está funcionando.'
-    };
-
-    transporter.sendMail(mailOptions, (error, info) => {
-        if (error) {
-            console.error(`❌ Error al enviar correo de prueba:`, error.message);
-            return res.status(500).json({ error: 'Error al enviar correo de prueba', detalle: error.message });
-        } else {
-            console.log(`📧 Correo de prueba enviado: ${info.response}`);
-            return res.status(200).json({ message: 'Correo de prueba enviado correctamente', response: info.response });
-        }
-    });
 });
 
 // Inicia el servidor
