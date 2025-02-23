@@ -9,6 +9,11 @@ const PORT = process.env.PORT || 10000;
 
 app.use(cors());
 app.use(express.json());
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    next();
+});
+
 
 // Configuración de la base de datos PostgreSQL
 const pool = new Pool({
