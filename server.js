@@ -123,6 +123,47 @@ app.post('/commitments', async (req, res) => {
     }
 });
 
+// Actualizar estado de un compromiso
+app.put('/commitments/:id', async (req, res) => {
+    const { id } = req.params;
+    const { state, observation } = req.body;
+
+    try {
+        const result = await pool.query(
+            'UPDATE commitments SET state = $1, observation = $2 WHERE id = $3 RETURNING *',
+            [state, observation, id]
+        );
+
+        if (result.rowCount > 0) {
+            const updatedCommitment = result.rows[0];
+
+            // Enviar correo al responsable y otros destinatarios
+            const mailOptions = {
+                from: 'enriquezroserot@gmail.com',
+                to: ['juanfelipegilmora2024@gmail.com'],
+                subject: `Actualización de estado: ${updatedCommitment.state}`,
+                text: `Hola ${updatedCommitment.responsible},\n\nEl compromiso "${updatedCommitment.commitment}" ahora tiene el estado "${updatedCommitment.state}".\n\nSaludos.`
+            };
+
+            transporter.sendMail(mailOptions, (error, info) => {
+                if (error) {
+                    console.error(`❌ Error al enviar correo a ${updatedCommitment.responsibleEmail}:`, error.message);
+                } else {
+                    console.log(`📧 Correo enviado a ${updatedCommitment.responsibleEmail}: ${info.response}`);
+                }
+            });
+
+            res.status(200).json(updatedCommitment);
+        } else {
+            res.status(404).json({ error: 'Compromiso no encontrado.' });
+        }
+    } catch (err) {
+        console.error('Error al actualizar el compromiso:', err.message);
+        res.status(500).send('Error al actualizar el compromiso.');
+    }
+});
+
+
 / Tarea programada para actualizar estados automáticamente y enviar notificación
 schedule.scheduleJob('0 0 * * *', async () => { // Ejecuta la tarea todos los días a medianoche
     console.log('🔍 Ejecutando tarea programada para verificar y actualizar estados...');
