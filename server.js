@@ -137,20 +137,23 @@ app.put('/commitments/:id', async (req, res) => {
         if (result.rowCount > 0) {
             const updatedCommitment = result.rows[0];
 
-            // Enviar correo al responsable y otros destinatarios
-            const mailOptions = {
-                from: 'enriquezroserot@gmail.com',
-                to: ['juanfelipegilmora2024@gmail.com'],
-                subject: `Actualización de estado: ${updatedCommitment.state}`,
-                text: `Hola ${updatedCommitment.responsible},\n\nEl compromiso "${updatedCommitment.commitment}" ahora tiene el estado "${updatedCommitment.state}".\n\nSaludos.`
-            };
+// Actualizar estado de un compromiso
+app.put('/commitments/:id', async (req, res) => {
+    const { id } = req.params;
+    const { state, observation } = req.body;
 
-            transporter.sendMail(mailOptions, (error, info) => {
-                if (error) {
-                    console.error(`❌ Error al enviar correo a ${updatedCommitment.responsibleEmail}:`, error.message);
-                } else {
-                    console.log(`📧 Correo enviado a ${updatedCommitment.responsibleEmail}: ${info.response}`);
-                }
+    try {
+        const query = 'UPDATE commitments SET state = $1, observation = $2 WHERE id = $3 RETURNING *';
+        const result = await pool.query(query, [state, observation, id]);
+
+        if (result.rowCount > 0) {
+            const updatedCommitment = result.rows[0];
+
+            await transporter.sendMail({
+                from: 'enriquezroserot@gmail.com',
+                to: [updatedCommitment.responsibleEmail],
+                subject: Actualización de estado: ${state},
+                text: Hola ${updatedCommitment.responsible},\n\nEl compromiso "${updatedCommitment.commitment}" ahora tiene el estado "${state}".\n\nGracias.
             });
 
             res.status(200).json(updatedCommitment);
