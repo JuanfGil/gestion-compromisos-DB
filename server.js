@@ -171,7 +171,7 @@ app.put('/commitments/:id', async (req, res) => {
 });
 
 
-/ Tarea programada para actualizar estados automáticamente y enviar notificación
+// Tarea programada para actualizar estados automáticamente y enviar notificación
 schedule.scheduleJob('0 0 * * *', async () => { // Ejecuta la tarea todos los días a medianoche
     console.log('🔍 Ejecutando tarea programada para verificar y actualizar estados...');
 
