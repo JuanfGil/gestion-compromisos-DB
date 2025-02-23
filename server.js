@@ -12,8 +12,7 @@ app.use(express.json());
 
 // Configuración de la base de datos PostgreSQL
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+    connectionString: process.env.DATABASE_URL + "?sslmode=require"
 });
 
 // Agregar columna avanceCompromiso si no existe
@@ -124,32 +123,65 @@ app.post('/commitments', async (req, res) => {
     }
 });
 
-// Actualizar estado de un compromiso
-app.put('/commitments/:id', async (req, res) => {
-    const { id } = req.params;
-    const { state, observation } = req.body;
+// Tarea programada para actualizar estados automáticamente y enviar notificación
+schedule.scheduleJob('0 0 * * *', async () => { // Ejecuta la tarea todos los días a medianoche
+    console.log('🔍 Ejecutando tarea programada para verificar y actualizar estados...');
 
     try {
-        const query = 'UPDATE commitments SET state = $1, observation = $2 WHERE id = $3 RETURNING *';
-        const result = await pool.query(query, [state, observation, id]);
+        const query = 'SELECT id, commitment, responsibleEmail, responsible, creationdate, state FROM commitments';
+        const result = await pool.query(query);
+        const now = new Date();
 
-        if (result.rowCount > 0) {
-            const updatedCommitment = result.rows[0];
+        console.log(`📌 Se encontraron ${result.rows.length} compromisos en la base de datos.`);
 
-            await transporter.sendMail({
-                from: 'enriquezroserot@gmail.com',
-                to: [updatedCommitment.responsibleEmail, 'enriquezroserot@gmail.com', 'rossiobp@gmail.com'],
-                subject: `Actualización de estado: ${state}`,
-                text: `Hola ${updatedCommitment.responsible},\n\nEl compromiso "${updatedCommitment.commitment}" ahora tiene el estado "${state}".\n\nGracias.`
-            });
+        for (const commitment of result.rows) {
+            console.log(`📌 Compromiso ID: ${commitment.id} - Estado Actual: ${commitment.state}`);
 
-            res.status(200).json(updatedCommitment);
-        } else {
-            res.status(404).json({ error: 'Compromiso no encontrado.' });
+            const creationDate = new Date(commitment.creationdate);
+            if (isNaN(creationDate.getTime())) {
+                console.error(`❌ ERROR: Fecha inválida para compromiso con ID ${commitment.id}`);
+                continue;
+            }
+
+            // Calcular diferencia en días
+            const diffInDays = Math.floor((now - creationDate) / (1000 * 60 * 60 * 24));
+            let newState = commitment.state;
+
+            if (commitment.state !== 'Cumplido') { // No cambiar si ya está cumplido
+                if (diffInDays > 30 && commitment.state !== 'Vencido') {
+                    newState = 'Vencido';
+                } else if (diffInDays > 15 && commitment.state !== 'Pendiente') {
+                    newState = 'Pendiente';
+                }
+            }
+
+            // Si el estado cambia, actualizarlo en la base de datos y enviar correo
+            if (newState !== commitment.state) {
+                await pool.query('UPDATE commitments SET state = $1 WHERE id = $2', [newState, commitment.id]);
+
+                console.log(`✅ Estado actualizado a ${newState} para el compromiso con ID ${commitment.id}`);
+
+                // Enviar correo al responsable
+                const mailOptions = {
+                    from: 'enriquezroserot@gmail.com',
+                    to: [commitment.responsibleemail, 'enriquezroserot@gmail.com', 'rossiobp@gmail.com', 'juanfelipegilmora2024@gmail.com'],
+                    subject: `Cambio de estado: ${newState}`,
+                    text: `Hola ${commitment.responsible},\n\nEl compromiso "${commitment.commitment}" ha cambiado a estado "${newState}".\n\nPor favor, revisa el sistema para más detalles.\n\nGracias.`
+                };
+
+                transporter.sendMail(mailOptions, (error, info) => {
+                    if (error) {
+                        console.error(`❌ Error al enviar correo a ${commitment.responsibleemail}:`, error.message);
+                    } else {
+                        console.log(`📧 Correo enviado a ${commitment.responsibleemail}: ${info.response}`);
+                    }
+                });
+            }
         }
+
+        console.log('✅ Verificación, actualización y notificación de estados completada.');
     } catch (err) {
-        console.error('Error al actualizar el compromiso:', err.message);
-        res.status(500).send('Error al actualizar el compromiso.');
+        console.error('❌ Error en la actualización de estados:', err.message);
     }
 });
 
@@ -174,51 +206,6 @@ app.delete('/commitments/:id', async (req, res) => {
     } catch (err) {
         console.error('Error al eliminar el compromiso:', err.message);
         res.status(500).send('Error al eliminar el compromiso.');
-    }
-});
-
-// Tarea programada para actualizar estados automáticamente
-schedule.scheduleJob('0 0 * * *', async () => {
-    console.log('Ejecutando tarea diaria para actualizar estados...');
-    try {
-        const query = 'SELECT * FROM commitments';
-        const result = await pool.query(query);
-        const now = new Date();
-
-        for (const commitment of result.rows) {
-            console.log(`Compromiso ID ${commitment.id} - Fecha de Creación en DB: ${commitment.creationdate}`);
-
-            // Asegurarse de que la fecha de creación es válida
-            const creationDate = new Date(commitment.creationdate);
-            if (isNaN(creationDate.getTime())) {
-                console.error(`Fecha inválida para compromiso con ID ${commitment.id}`);
-                continue; // Salta este compromiso si la fecha no es válida
-            }
-
-            const diffInDays = Math.floor((now - creationDate) / (1000 * 60 * 60 * 24));
-            let newState = commitment.state;
-
-            if (diffInDays > 30 && commitment.state !== 'Vencido') {
-                newState = 'Vencido';
-            } else if (diffInDays > 15 && commitment.state !== 'Pendiente' && commitment.state !== 'Vencido') {
-                newState = 'Pendiente';
-            }
-
-            if (newState !== commitment.state) {
-                await pool.query('UPDATE commitments SET state = $1 WHERE id = $2', [newState, commitment.id]);
-
-                await transporter.sendMail({
-                    from: 'enriquezroserot@gmail.com',
-                    to: [commitment.responsibleemail, 'enriquezroserot@gmail.com', 'rossiobp@gmail.com'],
-                    subject: `Cambio de estado a ${newState}`,
-                    text: `Hola ${commitment.responsible},\n\nEl compromiso "${commitment.commitment}" ha cambiado a estado "${newState}".\n\nGracias.`
-                });
-
-                console.log(`Estado actualizado a ${newState} para el compromiso con ID ${commitment.id}`);
-            }
-        }
-    } catch (err) {
-        console.error('Error en la tarea programada:', err.message);
     }
 });
 
