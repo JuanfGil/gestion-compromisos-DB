@@ -118,7 +118,7 @@ app.post('/commitments', async (req, res) => {
 
         await transporter.sendMail({
             from: 'enriquezroserot@gmail.com',
-            to: ['juanfelipegilmora2024@gmail.com'],
+            to: [responsibleEmail, 'enriquezroserot@gmail.com', 'rossiobp@gmail.com'],
             subject: 'Nuevo compromiso asignado',
             text: `Hola ${responsible},\n\nSe ha asignado un nuevo compromiso:\n\nCompromiso: ${commitment}\nMunicipio: ${municipality}\n\nGracias.`
         });
@@ -147,7 +147,7 @@ app.put('/commitments/:id', async (req, res) => {
             // Enviar correo al responsable y otros destinatarios
             const mailOptions = {
                 from: 'enriquezroserot@gmail.com',
-                to: ['juanfelipegilmora2024@gmail.com'],
+                to: [commitment.responsibleemail, 'enriquezroserot@gmail.com', 'rossiobp@gmail.com'],
                 subject: `Actualización de estado: ${updatedCommitment.state}`,
                 text: `Hola ${updatedCommitment.responsible},\n\nEl compromiso "${updatedCommitment.commitment}" ahora tiene el estado "${updatedCommitment.state}".\n\nSaludos.`
             };
