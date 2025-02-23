@@ -123,8 +123,8 @@ app.post('/commitments', async (req, res) => {
     }
 });
 
-// Tarea programada para actualizar estados automáticamente y enviar notificación
-schedule.scheduleJob('0 0 * * *', async () => { // Ejecuta la tarea todos los días a medianoche (UTC)
+/ Tarea programada para actualizar estados automáticamente y enviar notificación
+schedule.scheduleJob('0 0 * * *', async () => { // Ejecuta la tarea todos los días a medianoche
     console.log('🔍 Ejecutando tarea programada para verificar y actualizar estados...');
 
     try {
@@ -147,43 +147,35 @@ schedule.scheduleJob('0 0 * * *', async () => { // Ejecuta la tarea todos los d�
             const diffInDays = Math.floor((now - creationDate) / (1000 * 60 * 60 * 24));
             let newState = commitment.state;
 
-            // Si el compromiso no está cumplido, cambiar su estado según el tiempo transcurrido
-            if (commitment.state !== 'Cumplido') {
+            if (commitment.state !== 'Cumplido') { // No cambiar si ya está cumplido
                 if (diffInDays > 30 && commitment.state !== 'Vencido') {
                     newState = 'Vencido';
-                } else if (diffInDays > 15 && commitment.state !== 'Pendiente' && commitment.state !== 'Vencido') {
+                } else if (diffInDays > 15 && commitment.state !== 'Pendiente') {
                     newState = 'Pendiente';
                 }
             }
 
             // Si el estado cambia, actualizarlo en la base de datos y enviar correo
             if (newState !== commitment.state) {
-                const updateResult = await pool.query(
-                    'UPDATE commitments SET state = $1 WHERE id = $2 RETURNING *',
-                    [newState, commitment.id]
-                );
+                await pool.query('UPDATE commitments SET state = $1 WHERE id = $2', [newState, commitment.id]);
 
-                if (updateResult.rowCount > 0) {
-                    const updatedCommitment = updateResult.rows[0]; // 📌 Datos actualizados del compromiso
+                console.log(`✅ Estado actualizado a ${newState} para el compromiso con ID ${commitment.id}`);
 
-                    console.log(`✅ Estado actualizado a ${updatedCommitment.state} para el compromiso con ID ${updatedCommitment.id}`);
+                // Enviar correo al responsable + otros destinatarios
+                const mailOptions = {
+                    from: 'enriquezroserot@gmail.com',
+                    to: [commitment.responsibleemail, 'enriquezroserot@gmail.com', 'rossiobp@gmail.com'],
+                    subject: `Cambio de estado: ${newState}`,
+                    text: `Hola ${commitment.responsible},\n\nEl compromiso "${commitment.commitment}" ha cambiado a estado "${newState}".\n\nPor favor, revisa el sistema para más detalles.\n\nSaludos.`
+                };
 
-                    // Enviar correo con la información más reciente
-                    try {
-                        await transporter.sendMail({
-                            from: 'enriquezroserot@gmail.com',
-                            to: ['juanfelipegilmora2024@gmail.com'],
-                            subject: `Cambio de estado: ${updatedCommitment.state}`,
-                            text: `Hola ${updatedCommitment.responsible},\n\nEl compromiso "${updatedCommitment.commitment}" ha cambiado a estado "${updatedCommitment.state}".\n\nPor favor, revisa el sistema para más detalles.\n\nGracias.`
-                        });
-
-                        console.log(`📧 Correo enviado sobre cambio de estado a ${updatedCommitment.state}`);
-                    } catch (mailError) {
-                        console.error(`❌ Error al enviar correo a ${updatedCommitment.responsibleemail}:`, mailError.message);
+                transporter.sendMail(mailOptions, (error, info) => {
+                    if (error) {
+                        console.error(`❌ Error al enviar correo a ${commitment.responsibleemail}:`, error.message);
+                    } else {
+                        console.log(`📧 Correo enviado a ${commitment.responsibleemail}, enriquezroserot@gmail.com, rossiobp@gmail.com: ${info.response}`);
                     }
-                } else {
-                    console.error(`❌ No se pudo actualizar el estado del compromiso con ID ${commitment.id}`);
-                }
+                });
             }
         }
 
