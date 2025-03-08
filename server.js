@@ -120,7 +120,7 @@ app.post('/commitments', async (req, res) => {
             from: 'enriquezroserot@gmail.com',
             to: [responsibleEmail, 'enriquezroserot@gmail.com', 'rossiobp@gmail.com'],
             subject: 'Nuevo compromiso asignado',
-            text: `Hola ${responsible},\n\nSe ha asignado un nuevo compromiso:\n\nCompromiso: ${commitment}\nMunicipio: ${municipality}\n\nGracias.`
+            text: `Hola ${responsible},\n\nSe ha asignado un nuevo compromiso:\n\nCompromiso: ${commitment}\nObservación: ${observation}\n\nGracias.`
         });
 
         res.status(201).json(result.rows[0]);
