@@ -62,10 +62,10 @@ pool.query(`
         id SERIAL PRIMARY KEY,
         leaderName TEXT NOT NULL,
         leaderPhone TEXT NOT NULL,
+        municipality TEXT NOT NULL,
         commitment TEXT NOT NULL,
         responsible TEXT NOT NULL,
         responsibleEmail TEXT NOT NULL,
-        municipality TEXT NOT NULL,
         observation TEXT DEFAULT '',
         userId TEXT NOT NULL,
         state TEXT DEFAULT 'Activo',
@@ -101,7 +101,7 @@ app.get('/admin/commitments', async (req, res) => {
 
 // Guardar un nuevo compromiso
 app.post('/commitments', async (req, res) => {
-    const { leaderName, leaderPhone, commitment, responsible, municipality, observation, responsibleEmail, userId, creationDate } = req.body;
+    const { leaderName, leaderPhone, municipality, commitment, responsible, observation, responsibleEmail, userId, creationDate } = req.body;
 
     try {
         const duplicateCheck = await pool.query(`SELECT * FROM commitments WHERE commitment = $1 AND userId = $2`, [commitment, userId]);
@@ -110,9 +110,9 @@ app.post('/commitments', async (req, res) => {
         }
 
         const query = `
-            INSERT INTO commitments (leaderName, leaderPhone, commitment, responsible, municipality, observation, responsibleEmail, userId, creationDate)
+            INSERT INTO commitments (leaderName, leaderPhone, municipality, commitment, responsible, observation, responsibleEmail, userId, creationDate)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`;
-        const values = [leaderName, leaderPhone, commitment, responsible, municipality, observation, responsibleEmail, userId, creationDate];
+        const values = [leaderName, leaderPhone, municipality, commitment, responsible, observation, responsibleEmail, userId, creationDate];
 
         const result = await pool.query(query, values);
 
